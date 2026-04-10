@@ -66,16 +66,18 @@ const metro = {
 
 // Active session (one press of Play = one session)
 const session = {
-  state:          'idle',   // 'idle' | 'count-in' | 'playing'
-  selection:      null,
-  notePitches:    [],
-  countInBars:    2,
-  countInStart:   0,        // absolute beat where count-in begins
-  playStartBeat:  0,        // absolute beat where play section begins
-  playEndBeat:    0,        // absolute beat where play section ends
-  rootMidi:       60,
-  firstNoteMidi:  60,
-  chordMidis:     [],
+  state:             'idle',   // 'idle' | 'count-in' | 'playing'
+  selection:         null,
+  notePitches:       [],
+  countInBars:       2,
+  countInStart:      0,        // absolute beat where count-in begins
+  notePlayBeat:      0,        // absolute beat where the count-in reference note plays
+  playStartBeat:     0,        // absolute beat where play section begins
+  playEndBeat:       0,        // absolute beat where play section ends
+  rootMidi:          60,
+  firstNoteMidi:     60,
+  chordMidis:        [],
+  chordMidisDefault: [],       // chord using default (C4) register, for 'chord' playback mode
 };
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -125,9 +127,11 @@ function generateCore() {
   const root      = randomRoot    ? pickRandom(ROOT_NOTES) : document.getElementById('rootNote').value;
   const quality   = randomQuality ? pickRandom(QUALITIES)  : document.getElementById('quality').value;
   const caged     = document.getElementById('enableCaged').checked     ? pickRandom(CAGED_POSITIONS) : null;
-  const direction = document.getElementById('enableDirection').checked ? pickRandom(getDirectionPool()) : null;
-  const register  = document.getElementById('enableRegister').checked  ? pickRandom(getRegisterPool())  : null;
+  // Order must be resolved before direction: direction is suppressed when order is in use
   const order     = document.getElementById('enableOrder').checked     ? generateScaleOrder()         : null;
+  const direction = (!order && document.getElementById('enableDirection').checked)
+    ? pickRandom(getDirectionPool()) : null;
+  const register  = document.getElementById('enableRegister').checked  ? pickRandom(getRegisterPool())  : null;
 
   currentSelection = { root, quality, caged, direction, register, order };
   renderOutput();
@@ -143,9 +147,15 @@ function generate() {
 
 // ── Render: CAGED display ─────────────────────────────────────────────────────
 
+// Colour for each CAGED letter (circular palette: C→A→G→E→D→C)
+const CAGED_COLOURS = { C: '#ff6b6b', A: '#ffa040', G: '#69db7c', E: '#74c0fc', D: '#cc5de8' };
+
 function renderCaged(selected) {
   return CAGED_POSITIONS.map(letter => {
-    const cls = letter === selected ? 'caged-letter caged-selected' : 'caged-letter';
+    const isSelected = letter === selected;
+    const cls = isSelected
+      ? `caged-letter caged-selected caged-letter-${letter}`
+      : 'caged-letter';
     return `<span class="${cls}">${letter}</span>`;
   }).join('');
 }
@@ -162,8 +172,111 @@ function renderOutput() {
   if (direction) html.push(`<div class="output-line output-direction-line">${escHtml(direction)}</div>`);
   if (register)  html.push(`<div class="output-line output-register-line">${escHtml(register)}</div>`);
   if (order)     html.push(`<div class="output-line output-order-line">${escHtml(order.join('\u2013'))}</div>`);
+  html.push(renderStaffGraphic(currentSelection));
 
   document.getElementById('output').innerHTML = html.join('');
+}
+
+/**
+ * Returns an inline SVG string representing a mini music staff that encodes
+ * register (coloured region), direction (arrow), and CAGED position at a glance.
+ * Only the settings that were actually selected are shown.
+ */
+function renderStaffGraphic(selection) {
+  const { root, quality, caged, direction, register } = selection;
+
+  const w = 240;
+  // Staff: 5 lines with LINE_SPACING px gap — wide enough to centre arrows in each half
+  const LINE_SPACING = 10;
+  const lines = [26, 26 + LINE_SPACING, 26 + LINE_SPACING * 2, 26 + LINE_SPACING * 3, 26 + LINE_SPACING * 4];
+  const staffTop = lines[0];               // y = 26
+  const staffBot = lines[lines.length - 1]; // y = 66
+  const midY     = lines[2];               // middle (3rd) line — y = 46
+  const x1 = 14, x2 = 226;
+
+  // Height accommodates an extra row for the CAGED label beneath the staff
+  const h = caged ? 100 : 82;
+
+  const parts = [];
+
+  // Background card
+  parts.push(`<rect width="${w}" height="${h}" rx="7" fill="#1a1d27"/>`);
+
+  // Scale name
+  parts.push(`<text x="${w / 2}" y="16" text-anchor="middle" ` +
+    `font-family="'Segoe UI',system-ui,sans-serif" font-size="14" font-weight="700" fill="#f0f1f6">` +
+    `${escHtml(root)} ${escHtml(quality)}</text>`);
+
+  // The single accent colour for this card: the CAGED letter colour when available,
+  // otherwise a neutral light. This is used for both the register fill and the arrows
+  // so everything reads as one coherent colour per card.
+  const accentColour = caged ? (CAGED_COLOURS[caged] || '#d0d3e8') : '#d0d3e8';
+
+  // Register fill region (behind staff lines so lines overlay the fill)
+  if (register) {
+    let ry, rh;
+    if (register === 'high register') {
+      ry = staffTop - 4; rh = midY - staffTop + 4;
+    } else if (register === 'low register') {
+      ry = midY; rh = staffBot - midY + 4;
+    } else { // both registers
+      ry = staffTop - 4; rh = staffBot - staffTop + 8;
+    }
+    // Parse the hex accent colour and convert to an rgba fill with low alpha
+    const rfill = hexToRgba(accentColour, 0.30);
+    parts.push(`<rect x="${x1}" y="${ry}" width="${x2 - x1}" height="${rh}" rx="3" fill="${rfill}"/>`);
+  }
+
+  // Staff lines
+  lines.forEach(y => {
+    parts.push(`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="rgba(124,130,160,0.65)" stroke-width="1.5"/>`);
+  });
+
+  // Direction arrows — coloured, glowing, and centred within the active register section
+  if (direction) {
+    // Y baseline of visual centre for each half and the full staff
+    // Text baseline = visual_centre_y + CAP_HEIGHT_OFFSET (cap-height offset for font-size 22)
+    const CAP_HEIGHT_OFFSET = 8;
+    const upperY = Math.round((staffTop + midY) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 44  (upper-half centre)
+    const lowerY = Math.round((midY + staffBot) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 64  (lower-half centre)
+    const fullY  = Math.round((staffTop + staffBot) / 2) + CAP_HEIGHT_OFFSET; // ≈ 54  (full-staff centre)
+
+    // Arrow Y: centre within the active register section
+    const arrowY = register === 'high register' ? upperY
+      : register === 'low register' ? lowerY
+      : fullY;
+
+    /** Render one arrow glyph with a soft glow behind it */
+    function arrowEl(sym, ax, ay, sz = 22) {
+      const attrs = `text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="${sz}" font-weight="700" fill="${accentColour}"`;
+      // Glow layer (blurred copy behind)
+      const glow  = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.45" style="filter:blur(4px)">${sym}</text>`;
+      const solid = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.95">${sym}</text>`;
+      return glow + solid;
+    }
+
+    if (direction === 'ascending + descending') {
+      // Always side by side — direction and register are independent concepts
+      parts.push(arrowEl('↑', w / 2 - 18, arrowY, 20));
+      parts.push(arrowEl('↓', w / 2 + 18, arrowY, 20));
+    } else {
+      const sym = direction === 'ascending' ? '↑' : '↓';
+      parts.push(arrowEl(sym, w / 2, arrowY));
+    }
+  }
+
+  // CAGED shape label below the staff, coloured to match the letter's palette
+  if (caged) {
+    const labelCol = CAGED_COLOURS[caged] || '#f5a623';
+    parts.push(`<text x="${w / 2}" y="${staffBot + 18}" text-anchor="middle" ` +
+      `font-family="'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="${labelCol}">` +
+      `${escHtml(caged)}-shape</text>`);
+  }
+
+  return `<div class="output-line scale-staff-wrap">` +
+    `<svg class="scale-staff" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">` +
+    parts.join('') +
+    `</svg></div>`;
 }
 
 function escHtml(str) {
@@ -171,6 +284,14 @@ function escHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/** Converts a 6-digit hex colour string (e.g. '#ff6b6b') to an rgba(...) CSS value. */
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ── Audio Context ─────────────────────────────────────────────────────────────
@@ -315,8 +436,14 @@ function runScheduler() {
  * session-specific notes for this beat.
  */
 function onAudioBeat(beat, time) {
-  const mode       = getPlayMode();
-  const isDownbeat = (beat % BEATS_PER_BAR) === 0;
+  const mode = getPlayMode();
+
+  // In the last count-in bar every beat is a high (downbeat) click so the
+  // player can clearly distinguish it from the preceding count-in bars.
+  const inLastCountInBar = session.state === 'count-in' &&
+    beat >= (session.playStartBeat - BEATS_PER_BAR) &&
+    beat < session.playStartBeat;
+  const isDownbeat = inLastCountInBar || (beat % BEATS_PER_BAR) === 0;
 
   // Metronome click (audio and both modes)
   if (mode === 'audio' || mode === 'both') {
@@ -336,8 +463,8 @@ function scheduleSessionAudio(beat, time) {
 
   const bd = beatDuration();
 
-  // Count-in reference note — played once at the very first beat of count-in
-  if (beat === session.countInStart) {
+  // Count-in reference note — played on the first beat of the LAST count-in bar
+  if (beat === session.notePlayBeat) {
     const noteMode = getCountInNoteMode();
     if (noteMode === 'root')        scheduleNote(session.rootMidi,      time, bd * 1.5);
     else if (noteMode === 'first')  scheduleNote(session.firstNoteMidi, time, bd * 1.5);
@@ -356,8 +483,11 @@ function scheduleSessionAudio(beat, time) {
       scheduleNote(session.rootMidi,      time, bd * 3.5);
     } else if (playMode === 'first' && rel % BEATS_PER_BAR === 0) {
       scheduleNote(session.firstNoteMidi, time, bd * 3.5);
-    } else if (playMode === 'chord' && rel % BEATS_PER_BAR === 0) {
-      session.chordMidis.forEach(m => scheduleNote(m, time, bd * 3.5, 0.2));
+    } else if (playMode === 'chord' && beat === session.playStartBeat) {
+      // Play chord once at the start of the play section for its full duration,
+      // using register-independent (default octave) MIDI values.
+      const chordDuration = (session.playEndBeat - session.playStartBeat) * bd - 0.05;
+      session.chordMidisDefault.forEach(m => scheduleNote(m, time, chordDuration, 0.2));
     }
   }
 }
@@ -404,8 +534,8 @@ function updateCountInDisplay(beat) {
   const playBar   = session.playStartBeat / BEATS_PER_BAR; // always a whole number
   const barsLeft  = playBar - curBar; // bars remaining until play section
 
-  // ── Beat dots (visual / both modes) ──
-  const showDots = (mode !== 'audio');
+  // ── Beat dots — only shown in visual mode ──
+  const showDots = (mode === 'visual');
   dotsEl.hidden = !showDots;
   if (showDots) {
     const isPlay = (session.state === 'playing');
@@ -480,19 +610,26 @@ function startSession(selection, beatOffset) {
   const ivs      = SCALE_INTERVALS[quality] ?? SCALE_INTERVALS.Major;
 
   const countInStart  = beatOffset;
+  // The reference note plays on the first beat of the LAST count-in bar.
+  const notePlayBeat  = countInStart + Math.max(0, cib - 1) * BEATS_PER_BAR;
   const playStartBeat = countInStart + cib * BEATS_PER_BAR;
   const playEndBeat   = playStartBeat + Math.max(PLAY_BARS * BEATS_PER_BAR, notes.length);
 
-  session.state         = 'count-in';
-  session.selection     = selection;
-  session.notePitches   = notes;
-  session.countInBars   = cib;
-  session.countInStart  = countInStart;
-  session.playStartBeat = playStartBeat;
-  session.playEndBeat   = playEndBeat;
-  session.rootMidi      = base + ivs[0];
-  session.firstNoteMidi = notes[0] ?? (base + ivs[0]);
-  session.chordMidis    = [base + ivs[0], base + ivs[2], base + ivs[4]];
+  // Default-octave chord (register-independent) for 'chord' play mode
+  const defaultBase = REGISTER_MIDI_BASE['default'] + semitone;
+
+  session.state             = 'count-in';
+  session.selection         = selection;
+  session.notePitches       = notes;
+  session.countInBars       = cib;
+  session.countInStart      = countInStart;
+  session.notePlayBeat      = notePlayBeat;
+  session.playStartBeat     = playStartBeat;
+  session.playEndBeat       = playEndBeat;
+  session.rootMidi          = base + ivs[0];
+  session.firstNoteMidi     = notes[0] ?? (base + ivs[0]);
+  session.chordMidis        = [base + ivs[0], base + ivs[2], base + ivs[4]];
+  session.chordMidisDefault = [defaultBase + ivs[0], defaultBase + ivs[2], defaultBase + ivs[4]];
 
   if (!metro.running) startMetronome();
 }
@@ -525,11 +662,10 @@ function onPlayEnd() {
   const ok = generateCore();
   if (!ok) { stopSession(); return; }
 
-  // Align the next count-in to the next bar boundary in audio time.
-  // Use metro.beatCount (next unscheduled beat) to guarantee we don't
-  // try to re-schedule beats the audio thread has already passed.
-  const nextBar = nextBarBoundary(metro.beatCount);
-  startSession(currentSelection, nextBar);
+  // Start the new count-in from the CURRENT bar boundary so the bar already
+  // in progress becomes count-in bar 1 — no extra waiting bar is inserted.
+  const currentBarStart = Math.floor(metro.beatCount / BEATS_PER_BAR) * BEATS_PER_BAR;
+  startSession(currentSelection, currentBarStart);
 }
 
 /** Stops playback, cancels audio, hides the display. */
@@ -629,6 +765,15 @@ document.getElementById('enableRegister').addEventListener('change', function ()
   document.getElementById('registerOptions').classList.toggle('disabled', !this.checked);
 });
 
+// Scale order enable → disable direction (they are mutually exclusive)
+document.getElementById('enableOrder').addEventListener('change', function () {
+  const orderOn = this.checked;
+  const dirLabel = document.getElementById('enableDirection').closest('.setting-group');
+  dirLabel.classList.toggle('disabled', orderOn);
+  document.getElementById('enableDirection').disabled = orderOn;
+  document.getElementById('directionOptions').classList.toggle('disabled', orderOn || !document.getElementById('enableDirection').checked);
+});
+
 // Next Scale button
 document.getElementById('generateBtn').addEventListener('click', generate);
 
@@ -676,3 +821,15 @@ document.getElementById('hamburger').addEventListener('click', () => {
 
 // Close drawer when clicking the overlay
 document.getElementById('settings-overlay').addEventListener('click', closeSettings);
+
+// Auto-advance toggle → start playing immediately if turned on while idle
+document.getElementById('autoAdvance').addEventListener('change', function () {
+  if (this.checked && session.state === 'idle') {
+    if (!currentSelection) {
+      const ok = generateCore();
+      if (!ok) return;
+    }
+    startSession(currentSelection, 0);
+    updatePlayBtn(true);
+  }
+});
