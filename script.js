@@ -177,7 +177,9 @@ function renderOutput() {
 function renderStaffGraphic(selection) {
   const { root, quality, caged, direction, register } = selection;
 
-  const w = 240, h = caged ? 94 : 76;
+  const w = 240;
+  // Height accommodates an extra row for the CAGED label beneath the staff
+  const h = caged ? 94 : 76;
   // Staff: 5 lines at these y positions
   const lines = [26, 34, 42, 50, 58];
   const staffTop = lines[0];
@@ -219,7 +221,7 @@ function renderStaffGraphic(selection) {
   // Direction arrow — centred vertically in the staff area
   if (direction) {
     let sym = direction === 'ascending' ? '↑' : direction === 'descending' ? '↓' : '↕';
-    const arrowY = Math.round((staffTop + staffBot) / 2) + 7; // ~49
+    const arrowY = Math.round((staffTop + staffBot) / 2) + 7; // +7 aligns text baseline to visual centre
     parts.push(`<text x="${w / 2}" y="${arrowY}" text-anchor="middle" ` +
       `font-family="'Segoe UI',system-ui,sans-serif" font-size="22" font-weight="700" fill="#f0f1f6" opacity="0.88">` +
       `${sym}</text>`);
