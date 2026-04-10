@@ -16,8 +16,6 @@ const ROOT_SEMITONE = {
 
 const QUALITIES       = ['Major', 'Minor'];
 const CAGED_POSITIONS = ['C', 'A', 'G', 'E', 'D'];
-const DIRECTIONS      = ['ascending', 'descending'];
-const REGISTERS       = ['high register', 'low register'];
 
 // Scale intervals in semitones from root (7 degrees)
 const SCALE_INTERVALS = {
@@ -127,8 +125,8 @@ function generateCore() {
   const root      = randomRoot    ? pickRandom(ROOT_NOTES) : document.getElementById('rootNote').value;
   const quality   = randomQuality ? pickRandom(QUALITIES)  : document.getElementById('quality').value;
   const caged     = document.getElementById('enableCaged').checked     ? pickRandom(CAGED_POSITIONS) : null;
-  const direction = document.getElementById('enableDirection').checked ? pickRandom(DIRECTIONS)      : null;
-  const register  = document.getElementById('enableRegister').checked  ? pickRandom(REGISTERS)       : null;
+  const direction = document.getElementById('enableDirection').checked ? pickRandom(getDirectionPool()) : null;
+  const register  = document.getElementById('enableRegister').checked  ? pickRandom(getRegisterPool())  : null;
   const order     = document.getElementById('enableOrder').checked     ? generateScaleOrder()         : null;
 
   currentSelection = { root, quality, caged, direction, register, order };
@@ -189,18 +187,32 @@ function getAudioContext() {
 function buildNoteSequence(selection) {
   const { root, quality, direction, register, order } = selection;
   const semitone = ROOT_SEMITONE[root] ?? 0;
-  const base     = (REGISTER_MIDI_BASE[register] ?? REGISTER_MIDI_BASE['default']) + semitone;
   const ivs      = SCALE_INTERVALS[quality] ?? SCALE_INTERVALS.Major;
 
+  // Determine which register base(s) to use
+  const bases = register === 'both registers'
+    ? [REGISTER_MIDI_BASE['low register'] + semitone, REGISTER_MIDI_BASE['high register'] + semitone]
+    : [(REGISTER_MIDI_BASE[register] ?? REGISTER_MIDI_BASE['default']) + semitone];
+
   if (order) {
+    // Custom order always uses the first (lowest) base
     return order.map(degree => {
       const idx = Math.min(Math.max(degree - 1, 0), 6);
-      return base + ivs[idx];
+      return bases[0] + ivs[idx];
     });
   }
 
-  const ascending = [...ivs.map(i => base + i), base + 12];
-  return direction === 'descending' ? ascending.slice().reverse() : ascending;
+  function scaleForBase(base) {
+    const ascending = [...ivs.map(i => base + i), base + 12];
+    if (direction === 'descending') return ascending.slice().reverse();
+    if (direction === 'ascending + descending') {
+      // Go up the scale, then back down — octave is the shared turning point
+      return [...ascending, ...ascending.slice(0, -1).reverse()];
+    }
+    return ascending;
+  }
+
+  return bases.flatMap(base => scaleForBase(base));
 }
 
 // ── Audio: Schedule helpers ───────────────────────────────────────────────────
@@ -461,7 +473,10 @@ function startSession(selection, beatOffset) {
 
   const { root, quality, register } = selection;
   const semitone = ROOT_SEMITONE[root] ?? 0;
-  const base     = (REGISTER_MIDI_BASE[register] ?? REGISTER_MIDI_BASE['default']) + semitone;
+  // For 'both registers', use the low register as the reference for count-in / chord
+  const base     = register === 'both registers'
+    ? REGISTER_MIDI_BASE['low register'] + semitone
+    : (REGISTER_MIDI_BASE[register] ?? REGISTER_MIDI_BASE['default']) + semitone;
   const ivs      = SCALE_INTERVALS[quality] ?? SCALE_INTERVALS.Major;
 
   const countInStart  = beatOffset;
@@ -542,6 +557,24 @@ function getCountInBars()     { return parseInt(document.getElementById('countIn
 function getCountInNoteMode() { return document.getElementById('countInNote').value; }
 function getPlayNoteMode()    { return document.getElementById('playNote').value; }
 
+/** Returns the subset of direction values the user has checked as options. */
+function getDirectionPool() {
+  const pool = [];
+  if (document.getElementById('dirAsc').checked)  pool.push('ascending');
+  if (document.getElementById('dirDesc').checked) pool.push('descending');
+  if (document.getElementById('dirBoth').checked) pool.push('ascending + descending');
+  return pool.length ? pool : ['ascending']; // always return at least one value
+}
+
+/** Returns the subset of register values the user has checked as options. */
+function getRegisterPool() {
+  const pool = [];
+  if (document.getElementById('regHigh').checked) pool.push('high register');
+  if (document.getElementById('regLow').checked)  pool.push('low register');
+  if (document.getElementById('regBoth').checked) pool.push('both registers');
+  return pool.length ? pool : ['high register']; // always return at least one value
+}
+
 // ── Error helpers ─────────────────────────────────────────────────────────────
 
 function showError(msg) {
@@ -586,6 +619,14 @@ document.getElementById('randomRoot').addEventListener('change', function () {
 });
 document.getElementById('randomQuality').addEventListener('change', function () {
   document.getElementById('quality').disabled = this.checked;
+});
+
+// Direction / Register enable → toggle chip group opacity
+document.getElementById('enableDirection').addEventListener('change', function () {
+  document.getElementById('directionOptions').classList.toggle('disabled', !this.checked);
+});
+document.getElementById('enableRegister').addEventListener('change', function () {
+  document.getElementById('registerOptions').classList.toggle('disabled', !this.checked);
 });
 
 // Next Scale button
