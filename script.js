@@ -127,9 +127,11 @@ function generateCore() {
   const root      = randomRoot    ? pickRandom(ROOT_NOTES) : document.getElementById('rootNote').value;
   const quality   = randomQuality ? pickRandom(QUALITIES)  : document.getElementById('quality').value;
   const caged     = document.getElementById('enableCaged').checked     ? pickRandom(CAGED_POSITIONS) : null;
-  const direction = document.getElementById('enableDirection').checked ? pickRandom(getDirectionPool()) : null;
-  const register  = document.getElementById('enableRegister').checked  ? pickRandom(getRegisterPool())  : null;
+  // Order must be resolved before direction: direction is suppressed when order is in use
   const order     = document.getElementById('enableOrder').checked     ? generateScaleOrder()         : null;
+  const direction = (!order && document.getElementById('enableDirection').checked)
+    ? pickRandom(getDirectionPool()) : null;
+  const register  = document.getElementById('enableRegister').checked  ? pickRandom(getRegisterPool())  : null;
 
   currentSelection = { root, quality, caged, direction, register, order };
   renderOutput();
@@ -205,19 +207,23 @@ function renderStaffGraphic(selection) {
     `font-family="'Segoe UI',system-ui,sans-serif" font-size="14" font-weight="700" fill="#f0f1f6">` +
     `${escHtml(root)} ${escHtml(quality)}</text>`);
 
+  // The single accent colour for this card: the CAGED letter colour when available,
+  // otherwise a neutral light. This is used for both the register fill and the arrows
+  // so everything reads as one coherent colour per card.
+  const accentColour = caged ? (CAGED_COLOURS[caged] || '#d0d3e8') : '#d0d3e8';
+
   // Register fill region (behind staff lines so lines overlay the fill)
   if (register) {
-    let ry, rh, rfill;
+    let ry, rh;
     if (register === 'high register') {
       ry = staffTop - 4; rh = midY - staffTop + 4;
-      rfill = 'rgba(108,99,255,0.38)';
     } else if (register === 'low register') {
       ry = midY; rh = staffBot - midY + 4;
-      rfill = 'rgba(245,166,35,0.38)';
     } else { // both registers
       ry = staffTop - 4; rh = staffBot - staffTop + 8;
-      rfill = 'rgba(74,222,128,0.25)';
     }
+    // Parse the hex accent colour and convert to an rgba fill with low alpha
+    const rfill = hexToRgba(accentColour, 0.30);
     parts.push(`<rect x="${x1}" y="${ry}" width="${x2 - x1}" height="${rh}" rx="3" fill="${rfill}"/>`);
   }
 
@@ -228,12 +234,6 @@ function renderStaffGraphic(selection) {
 
   // Direction arrows — coloured, glowing, and centred within the active register section
   if (direction) {
-    // Arrow colour matches register colour for instant visual correlation
-    const colour = register === 'high register' ? '#9b94ff'
-      : register === 'low register'  ? '#f5a623'
-      : register === 'both registers' ? '#4ade80'
-      : '#d0d3e8'; // no register — neutral light
-
     // Y baseline of visual centre for each half and the full staff
     // Text baseline = visual_centre_y + CAP_HEIGHT_OFFSET (cap-height offset for font-size 22)
     const CAP_HEIGHT_OFFSET = 8;
@@ -241,39 +241,27 @@ function renderStaffGraphic(selection) {
     const lowerY = Math.round((midY + staffBot) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 64  (lower-half centre)
     const fullY  = Math.round((staffTop + staffBot) / 2) + CAP_HEIGHT_OFFSET; // ≈ 54  (full-staff centre)
 
-    // Arrow text Y: single-direction uses its section; both-direction splits
-    const isAscDesc = direction === 'ascending + descending';
-    const isBothReg = register === 'both registers';
+    // Arrow Y: centre within the active register section
+    const arrowY = register === 'high register' ? upperY
+      : register === 'low register' ? lowerY
+      : fullY;
 
     /** Render one arrow glyph with a soft glow behind it */
     function arrowEl(sym, ax, ay, sz = 22) {
-      const attrs = `text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="${sz}" font-weight="700" fill="${colour}"`;
+      const attrs = `text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="${sz}" font-weight="700" fill="${accentColour}"`;
       // Glow layer (blurred copy behind)
       const glow  = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.45" style="filter:blur(4px)">${sym}</text>`;
       const solid = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.95">${sym}</text>`;
       return glow + solid;
     }
 
-    if (isAscDesc) {
-      if (isBothReg) {
-        // ↑ in upper half, ↓ in lower half — visually maps to the two regions
-        parts.push(arrowEl('↑', w / 2, upperY));
-        parts.push(arrowEl('↓', w / 2, lowerY));
-      } else {
-        // Both arrows within the same section, side by side
-        const oy = register === 'high register' ? upperY
-          : register === 'low register' ? lowerY
-          : fullY;
-        parts.push(arrowEl('↑', w / 2 - 18, oy, 20));
-        parts.push(arrowEl('↓', w / 2 + 18, oy, 20));
-      }
+    if (direction === 'ascending + descending') {
+      // Always side by side — direction and register are independent concepts
+      parts.push(arrowEl('↑', w / 2 - 18, arrowY, 20));
+      parts.push(arrowEl('↓', w / 2 + 18, arrowY, 20));
     } else {
-      // Single direction arrow centred in the active region
       const sym = direction === 'ascending' ? '↑' : '↓';
-      const oy  = register === 'high register' ? upperY
-        : register === 'low register' ? lowerY
-        : fullY;
-      parts.push(arrowEl(sym, w / 2, oy));
+      parts.push(arrowEl(sym, w / 2, arrowY));
     }
   }
 
@@ -296,6 +284,14 @@ function escHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/** Converts a 6-digit hex colour string (e.g. '#ff6b6b') to an rgba(...) CSS value. */
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ── Audio Context ─────────────────────────────────────────────────────────────
@@ -767,6 +763,15 @@ document.getElementById('enableDirection').addEventListener('change', function (
 });
 document.getElementById('enableRegister').addEventListener('change', function () {
   document.getElementById('registerOptions').classList.toggle('disabled', !this.checked);
+});
+
+// Scale order enable → disable direction (they are mutually exclusive)
+document.getElementById('enableOrder').addEventListener('change', function () {
+  const orderOn = this.checked;
+  const dirLabel = document.getElementById('enableDirection').closest('.setting-group');
+  dirLabel.classList.toggle('disabled', orderOn);
+  document.getElementById('enableDirection').disabled = orderOn;
+  document.getElementById('directionOptions').classList.toggle('disabled', orderOn || !document.getElementById('enableDirection').checked);
 });
 
 // Next Scale button

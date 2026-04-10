@@ -118,6 +118,11 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  transition: opacity var(--transition);
+}
+.setting-group.disabled {
+  opacity: 0.38;
+  pointer-events: none;
 }
 .setting-group:last-of-type { border-bottom: none; }
 
