@@ -65,17 +65,14 @@ function midiToHz(midi) {
 
 /**
  * Returns an array like [3, 4, 7, 5, 2, 1, 6, 3].
- * • Starts and ends on a chord tone (1, 3, 5, or 7).
- * • All seven scale degrees appear.
- * • If start === end, the 6 remaining degrees fill the middle.
- * • If start !== end, the 5 remaining degrees fill the middle.
+ * • Starts AND ends on the same chord tone (1, 3, 5, or 7) — the note is repeated.
+ * • All seven scale degrees appear exactly once in the sequence.
+ * • The 6 remaining degrees fill the middle in random order.
  */
 function generateScaleOrder() {
-  const start = pickRandom(CHORD_TONES);
-  const end   = pickRandom(CHORD_TONES);
-  const usedSet = new Set([start, end]);
-  const middle  = shuffle([1, 2, 3, 4, 5, 6, 7].filter(n => !usedSet.has(n)));
-  return [start, ...middle, end];
+  const startEnd = pickRandom(CHORD_TONES);
+  const middle   = shuffle([1, 2, 3, 4, 5, 6, 7].filter(n => n !== startEnd));
+  return [startEnd, ...middle, startEnd];
 }
 
 // ── Core: Generate Selection ──────────────────────────────────────────────────
