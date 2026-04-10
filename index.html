@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scale Picker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="app-header">
+      <h1 class="app-title">Scale Picker</h1>
+      <button id="hamburger" class="hamburger-btn" aria-label="Toggle settings" aria-expanded="false">☰</button>
+    </header>
+
+    <!-- Overlay for mobile drawer -->
+    <div id="settings-overlay" class="settings-overlay" aria-hidden="true"></div>
+
+    <!-- Layout wrapper -->
+    <div class="layout">
+
+      <!-- Settings panel -->
+      <aside id="settings-panel" class="settings-panel" aria-label="Settings">
+        <div class="settings-scroll">
+
+          <p class="settings-hint">Check to randomise. Uncheck to fix.</p>
+
+          <!-- Cat 1: Root note -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="randomRoot" class="setting-checkbox" checked>
+              <span class="setting-name">Root Note</span>
+            </label>
+            <select id="rootNote" class="setting-select" disabled title="Select a fixed root note">
+              <option value="C">C</option>
+              <option value="Db">D♭</option>
+              <option value="D">D</option>
+              <option value="Eb">E♭</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="F#">F♯</option>
+              <option value="G">G</option>
+              <option value="Ab">A♭</option>
+              <option value="A">A</option>
+              <option value="Bb">B♭</option>
+              <option value="B">B</option>
+            </select>
+          </div>
+
+          <!-- Cat 2: Scale quality -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="randomQuality" class="setting-checkbox" checked>
+              <span class="setting-name">Quality</span>
+            </label>
+            <select id="quality" class="setting-select" disabled title="Select a fixed quality">
+              <option value="Major">Major</option>
+              <option value="Minor">Minor</option>
+            </select>
+          </div>
+
+          <div class="settings-divider"></div>
+          <p class="settings-hint">Check to include in output.</p>
+
+          <!-- Cat 3: CAGED position -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="enableCaged" class="setting-checkbox" checked>
+              <span class="setting-name">CAGED Position</span>
+            </label>
+          </div>
+
+          <!-- Cat 4: Direction -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="enableDirection" class="setting-checkbox" checked>
+              <span class="setting-name">Direction</span>
+            </label>
+          </div>
+
+          <!-- Cat 5: Register -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="enableRegister" class="setting-checkbox" checked>
+              <span class="setting-name">Register</span>
+            </label>
+          </div>
+
+          <!-- Cat 6: Scale order -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="enableOrder" class="setting-checkbox">
+              <span class="setting-name">Scale Order</span>
+            </label>
+          </div>
+
+          <!-- Error message -->
+          <div id="error-msg" class="error-msg" role="alert" hidden></div>
+
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="main-content">
+
+        <!-- Output area (large tap target) -->
+        <div id="output-area" class="output-area" role="button" tabindex="0"
+             aria-label="Scale output — tap or press space to generate">
+          <div id="output" class="output">
+            <div class="output-hint">
+              <span class="hint-icon">♩</span>
+              <p>Tap here or press <kbd>Space</kbd> to generate a scale</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls bar -->
+        <div class="controls-bar">
+          <button id="generateBtn" class="btn btn-generate">Generate</button>
+          <button id="playBtn" class="btn btn-play" disabled>▶ Play</button>
+          <div class="bpm-wrapper">
+            <label for="bpm" class="bpm-label">BPM</label>
+            <input type="number" id="bpm" class="bpm-input" value="60" min="20" max="300" step="5">
+          </div>
+        </div>
+
+      </main>
+    </div><!-- /.layout -->
+  </div><!-- /.app -->
+
+  <script src="script.js"></script>
+</body>
+</html>
