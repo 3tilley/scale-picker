@@ -268,9 +268,15 @@ html, body {
 
 .caged-letter.caged-selected {
   font-size: clamp(2.2rem, 6vw, 3.8rem);
-  color: var(--accent);
-  text-shadow: 0 0 20px rgba(245, 166, 35, 0.4);
+  /* colour is applied by the letter-specific rule below */
 }
+
+/* Per-letter CAGED colours — circular palette C→A→G→E→D→C */
+.caged-letter.caged-letter-C { color: #ff6b6b; text-shadow: 0 0 20px rgba(255,107,107,0.5); }
+.caged-letter.caged-letter-A { color: #ffa040; text-shadow: 0 0 20px rgba(255,160, 64,0.5); }
+.caged-letter.caged-letter-G { color: #69db7c; text-shadow: 0 0 20px rgba(105,219,124,0.5); }
+.caged-letter.caged-letter-E { color: #74c0fc; text-shadow: 0 0 20px rgba(116,192,252,0.5); }
+.caged-letter.caged-letter-D { color: #cc5de8; text-shadow: 0 0 20px rgba(204, 93,232,0.5); }
 
 .output-direction-line,
 .output-register-line {

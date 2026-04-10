@@ -145,9 +145,15 @@ function generate() {
 
 // ── Render: CAGED display ─────────────────────────────────────────────────────
 
+// Colour for each CAGED letter (circular palette: C→A→G→E→D→C)
+const CAGED_COLOURS = { C: '#ff6b6b', A: '#ffa040', G: '#69db7c', E: '#74c0fc', D: '#cc5de8' };
+
 function renderCaged(selected) {
   return CAGED_POSITIONS.map(letter => {
-    const cls = letter === selected ? 'caged-letter caged-selected' : 'caged-letter';
+    const isSelected = letter === selected;
+    const cls = isSelected
+      ? `caged-letter caged-selected caged-letter-${letter}`
+      : 'caged-letter';
     return `<span class="${cls}">${letter}</span>`;
   }).join('');
 }
@@ -178,14 +184,16 @@ function renderStaffGraphic(selection) {
   const { root, quality, caged, direction, register } = selection;
 
   const w = 240;
-  // Height accommodates an extra row for the CAGED label beneath the staff
-  const h = caged ? 94 : 76;
-  // Staff: 5 lines at these y positions
-  const lines = [26, 34, 42, 50, 58];
-  const staffTop = lines[0];
-  const staffBot = lines[lines.length - 1];
-  const midY     = lines[2]; // middle (3rd) line — y=42
+  // Staff: 5 lines with LINE_SPACING px gap — wide enough to centre arrows in each half
+  const LINE_SPACING = 10;
+  const lines = [26, 26 + LINE_SPACING, 26 + LINE_SPACING * 2, 26 + LINE_SPACING * 3, 26 + LINE_SPACING * 4];
+  const staffTop = lines[0];               // y = 26
+  const staffBot = lines[lines.length - 1]; // y = 66
+  const midY     = lines[2];               // middle (3rd) line — y = 46
   const x1 = 14, x2 = 226;
+
+  // Height accommodates an extra row for the CAGED label beneath the staff
+  const h = caged ? 100 : 82;
 
   const parts = [];
 
@@ -218,19 +226,62 @@ function renderStaffGraphic(selection) {
     parts.push(`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="rgba(124,130,160,0.65)" stroke-width="1.5"/>`);
   });
 
-  // Direction arrow — centred vertically in the staff area
+  // Direction arrows — coloured, glowing, and centred within the active register section
   if (direction) {
-    let sym = direction === 'ascending' ? '↑' : direction === 'descending' ? '↓' : '↕';
-    const arrowY = Math.round((staffTop + staffBot) / 2) + 7; // +7 aligns text baseline to visual centre
-    parts.push(`<text x="${w / 2}" y="${arrowY}" text-anchor="middle" ` +
-      `font-family="'Segoe UI',system-ui,sans-serif" font-size="22" font-weight="700" fill="#f0f1f6" opacity="0.88">` +
-      `${sym}</text>`);
+    // Arrow colour matches register colour for instant visual correlation
+    const colour = register === 'high register' ? '#9b94ff'
+      : register === 'low register'  ? '#f5a623'
+      : register === 'both registers' ? '#4ade80'
+      : '#d0d3e8'; // no register — neutral light
+
+    // Y baseline of visual centre for each half and the full staff
+    // Text baseline = visual_centre_y + CAP_HEIGHT_OFFSET (cap-height offset for font-size 22)
+    const CAP_HEIGHT_OFFSET = 8;
+    const upperY = Math.round((staffTop + midY) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 44  (upper-half centre)
+    const lowerY = Math.round((midY + staffBot) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 64  (lower-half centre)
+    const fullY  = Math.round((staffTop + staffBot) / 2) + CAP_HEIGHT_OFFSET; // ≈ 54  (full-staff centre)
+
+    // Arrow text Y: single-direction uses its section; both-direction splits
+    const isAscDesc = direction === 'ascending + descending';
+    const isBothReg = register === 'both registers';
+
+    /** Render one arrow glyph with a soft glow behind it */
+    function arrowEl(sym, ax, ay, sz = 22) {
+      const attrs = `text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="${sz}" font-weight="700" fill="${colour}"`;
+      // Glow layer (blurred copy behind)
+      const glow  = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.45" style="filter:blur(4px)">${sym}</text>`;
+      const solid = `<text x="${ax}" y="${ay}" ${attrs} opacity="0.95">${sym}</text>`;
+      return glow + solid;
+    }
+
+    if (isAscDesc) {
+      if (isBothReg) {
+        // ↑ in upper half, ↓ in lower half — visually maps to the two regions
+        parts.push(arrowEl('↑', w / 2, upperY));
+        parts.push(arrowEl('↓', w / 2, lowerY));
+      } else {
+        // Both arrows within the same section, side by side
+        const oy = register === 'high register' ? upperY
+          : register === 'low register' ? lowerY
+          : fullY;
+        parts.push(arrowEl('↑', w / 2 - 18, oy, 20));
+        parts.push(arrowEl('↓', w / 2 + 18, oy, 20));
+      }
+    } else {
+      // Single direction arrow centred in the active region
+      const sym = direction === 'ascending' ? '↑' : '↓';
+      const oy  = register === 'high register' ? upperY
+        : register === 'low register' ? lowerY
+        : fullY;
+      parts.push(arrowEl(sym, w / 2, oy));
+    }
   }
 
-  // CAGED shape label below the staff
+  // CAGED shape label below the staff, coloured to match the letter's palette
   if (caged) {
-    parts.push(`<text x="${w / 2}" y="${staffBot + 20}" text-anchor="middle" ` +
-      `font-family="'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="#f5a623">` +
+    const labelCol = CAGED_COLOURS[caged] || '#f5a623';
+    parts.push(`<text x="${w / 2}" y="${staffBot + 18}" text-anchor="middle" ` +
+      `font-family="'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="${labelCol}">` +
       `${escHtml(caged)}-shape</text>`);
   }
 
