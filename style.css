@@ -280,6 +280,57 @@ html, body {
   font-family: inherit;
 }
 
+/* ── Count-in Display ───────────────────────── */
+.countin-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 1rem;
+  min-height: 3rem;
+}
+
+.countin-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex: 1;
+  transition: opacity 0.08s linear, color var(--transition);
+  white-space: nowrap;
+}
+
+.countin-label.state-countdown { color: var(--text-muted); }
+.countin-label.state-ready     { color: var(--text-muted); font-style: italic; }
+.countin-label.state-getready  { color: var(--accent); }
+.countin-label.state-playing   { color: var(--success); font-size: 1.25rem; }
+
+/* Beat dots */
+.beat-dots {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.beat-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  transition: background 0.06s ease, transform 0.06s ease;
+}
+
+.beat-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+.beat-dot.active.is-playing {
+  background: var(--success);
+}
+
 /* ── Controls Bar ───────────────────────────── */
 .controls-bar {
   display: flex;
@@ -396,7 +447,10 @@ html, body {
 
   .controls-bar { gap: 0.5rem; padding: 0.6rem 0.75rem; }
 
-  .bpm-wrapper { margin-left: 0; }
+  .btn-generate,
+  .btn-play { flex: 1 1 0; min-width: 0; text-align: center; }
+
+  .bpm-wrapper { flex: 0 0 100%; margin-left: 0; }
 
   .output-root-quality { font-size: clamp(2rem, 12vw, 3.5rem); }
 
