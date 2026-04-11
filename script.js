@@ -166,46 +166,55 @@ function renderOutput() {
   if (!currentSelection) return;
   const { root, quality, caged, direction, register, order } = currentSelection;
 
+  // Display quality: Major keeps capital M, minor uses lowercase m
+  const qualityDisplay = quality === 'Major' ? 'Major' : 'minor';
+  const qualityCls     = quality === 'Major' ? 'quality-major' : 'quality-minor';
+
   const html = [];
-  html.push(`<div class="output-line output-root-quality">${escHtml(root)} ${escHtml(quality)}</div>`);
-  if (caged)     html.push(`<div class="output-line output-caged-row">${renderCaged(caged)}</div>`);
+  html.push(
+    `<div class="output-line output-root-quality">` +
+    `${escHtml(root)}\u00a0<span class="${qualityCls}">${escHtml(qualityDisplay)}</span>` +
+    `</div>`
+  );
+  // Staff graphic sits immediately after the title
+  html.push(renderStaffGraphic(currentSelection));
+  if (caged) {
+    const shapeCol = CAGED_COLOURS[caged] || '#f5a623';
+    html.push(
+      `<div class="output-line output-caged-shape" style="color:${shapeCol}">` +
+      `${escHtml(caged)} shape</div>`
+    );
+    html.push(`<div class="output-line output-caged-row">${renderCaged(caged)}</div>`);
+  }
   if (direction) html.push(`<div class="output-line output-direction-line">${escHtml(direction)}</div>`);
   if (register)  html.push(`<div class="output-line output-register-line">${escHtml(register)}</div>`);
   if (order)     html.push(`<div class="output-line output-order-line">${escHtml(order.join('\u2013'))}</div>`);
-  html.push(renderStaffGraphic(currentSelection));
 
   document.getElementById('output').innerHTML = html.join('');
 }
 
 /**
- * Returns an inline SVG string representing a mini music staff that encodes
- * register (coloured region), direction (arrow), and CAGED position at a glance.
- * Only the settings that were actually selected are shown.
+ * Returns an inline SVG string representing a music staff that encodes
+ * register (coloured region) and direction (arrow) at a glance.
+ * The scale name and CAGED label are rendered outside the SVG by renderOutput().
  */
 function renderStaffGraphic(selection) {
-  const { root, quality, caged, direction, register } = selection;
+  const { caged, direction, register } = selection;
 
   const w = 240;
-  // Staff: 5 lines with LINE_SPACING px gap — wide enough to centre arrows in each half
+  // Staff: 5 lines with LINE_SPACING px gap — starting close to the top (no scale name inside)
   const LINE_SPACING = 10;
-  const lines = [26, 26 + LINE_SPACING, 26 + LINE_SPACING * 2, 26 + LINE_SPACING * 3, 26 + LINE_SPACING * 4];
-  const staffTop = lines[0];               // y = 26
-  const staffBot = lines[lines.length - 1]; // y = 66
-  const midY     = lines[2];               // middle (3rd) line — y = 46
+  const lines = [10, 10 + LINE_SPACING, 10 + LINE_SPACING * 2, 10 + LINE_SPACING * 3, 10 + LINE_SPACING * 4];
+  const staffTop = lines[0];               // y = 10
+  const staffBot = lines[lines.length - 1]; // y = 50
+  const midY     = lines[2];               // middle (3rd) line — y = 30
   const x1 = 14, x2 = 226;
-
-  // Height accommodates an extra row for the CAGED label beneath the staff
-  const h = caged ? 100 : 82;
+  const h = 60;
 
   const parts = [];
 
   // Background card
   parts.push(`<rect width="${w}" height="${h}" rx="7" fill="#1a1d27"/>`);
-
-  // Scale name
-  parts.push(`<text x="${w / 2}" y="16" text-anchor="middle" ` +
-    `font-family="'Segoe UI',system-ui,sans-serif" font-size="14" font-weight="700" fill="#f0f1f6">` +
-    `${escHtml(root)} ${escHtml(quality)}</text>`);
 
   // The single accent colour for this card: the CAGED letter colour when available,
   // otherwise a neutral light. This is used for both the register fill and the arrows
@@ -237,9 +246,9 @@ function renderStaffGraphic(selection) {
     // Y baseline of visual centre for each half and the full staff
     // Text baseline = visual_centre_y + CAP_HEIGHT_OFFSET (cap-height offset for font-size 22)
     const CAP_HEIGHT_OFFSET = 8;
-    const upperY = Math.round((staffTop + midY) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 44  (upper-half centre)
-    const lowerY = Math.round((midY + staffBot) / 2) + CAP_HEIGHT_OFFSET;  // ≈ 64  (lower-half centre)
-    const fullY  = Math.round((staffTop + staffBot) / 2) + CAP_HEIGHT_OFFSET; // ≈ 54  (full-staff centre)
+    const upperY = Math.round((staffTop + midY) / 2) + CAP_HEIGHT_OFFSET;  // upper-half centre
+    const lowerY = Math.round((midY + staffBot) / 2) + CAP_HEIGHT_OFFSET;  // lower-half centre
+    const fullY  = Math.round((staffTop + staffBot) / 2) + CAP_HEIGHT_OFFSET; // full-staff centre
 
     // Arrow Y: centre within the active register section
     const arrowY = register === 'high register' ? upperY
@@ -263,14 +272,6 @@ function renderStaffGraphic(selection) {
       const sym = direction === 'ascending' ? '↑' : '↓';
       parts.push(arrowEl(sym, w / 2, arrowY));
     }
-  }
-
-  // CAGED shape label below the staff, coloured to match the letter's palette
-  if (caged) {
-    const labelCol = CAGED_COLOURS[caged] || '#f5a623';
-    parts.push(`<text x="${w / 2}" y="${staffBot + 18}" text-anchor="middle" ` +
-      `font-family="'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="${labelCol}">` +
-      `${escHtml(caged)}-shape</text>`);
   }
 
   return `<div class="output-line scale-staff-wrap">` +
