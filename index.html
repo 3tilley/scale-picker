@@ -4,9 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scale Picker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Preset selection screen — shown on first load -->
+  <div id="preset-screen" class="preset-screen">
+    <div class="preset-content">
+      <h1 class="preset-title">Scale Picker</h1>
+      <p class="preset-subtitle">Choose your level to get started</p>
+      <div class="preset-grid">
+        <button class="preset-card" data-preset="new-player">
+          <span class="preset-card-icon">🎸</span>
+          <span class="preset-card-label">New Player</span>
+          <span class="preset-card-desc">Just the basics — C major in CAGED shapes</span>
+        </button>
+        <button class="preset-card" data-preset="intermediate">
+          <span class="preset-card-icon">🎵</span>
+          <span class="preset-card-label">Intermediate</span>
+          <span class="preset-card-desc">Random roots, major &amp; minor, with direction</span>
+        </button>
+        <button class="preset-card" data-preset="blues-dentist">
+          <span class="preset-card-icon">🎷</span>
+          <span class="preset-card-label">Blues Dentist</span>
+          <span class="preset-card-desc">Modes, register, and all the CAGED shapes</span>
+        </button>
+        <button class="preset-card" data-preset="session-musician">
+          <span class="preset-card-icon">🎹</span>
+          <span class="preset-card-label">Session Musician</span>
+          <span class="preset-card-desc">Everything on — fast tempo, auto-advance</span>
+        </button>
+      </div>
+      <a href="#" id="preset-customise" class="preset-customise">or customise</a>
+    </div>
+  </div>
+
   <div class="app">
 
     <!-- Header -->
@@ -59,6 +93,14 @@
               <option value="Major">Major</option>
               <option value="Minor">Minor</option>
             </select>
+          </div>
+
+          <!-- Cat 2b: Modes toggle -->
+          <div class="setting-group">
+            <label class="setting-label">
+              <input type="checkbox" id="enableModes" class="setting-checkbox">
+              <span class="setting-name">Modes</span>
+            </label>
           </div>
 
           <div class="settings-divider"></div>
