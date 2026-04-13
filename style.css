@@ -212,6 +212,107 @@ html, body {
   min-width: 0;
 }
 
+/* ── Preset Screen ──────────────────────────── */
+.preset-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.preset-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.preset-content {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  max-width: 520px;
+  width: 100%;
+}
+
+.preset-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-light);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.02em;
+}
+
+.preset-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.preset-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.2rem 0.9rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all var(--transition);
+  text-align: center;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+}
+.preset-card:hover {
+  background: var(--surface-2);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 99, 255, 0.25);
+}
+.preset-card:active { transform: translateY(0); }
+
+.preset-card-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.preset-card-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.preset-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.preset-customise {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.preset-customise:hover { color: var(--primary-light); }
+
+@media (max-width: 400px) {
+  .preset-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Output Area ────────────────────────────── */
 .output-area {
   flex: 1;
@@ -244,22 +345,36 @@ html, body {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.output-root-quality {
-  font-size: clamp(2.2rem, 7vw, 4.5rem);
-  font-weight: 800;
+/* Root note — large, bold, sans-serif */
+.output-root {
+  font-size: clamp(2.8rem, 9vw, 5.5rem);
+  font-weight: 900;
   color: var(--text);
-  letter-spacing: -0.025em;
-  margin-bottom: 0.1em;
+  letter-spacing: -0.03em;
+  margin-bottom: 0;
+  line-height: 1.1;
 }
 
-/* Quality colouring — Major in warm gold, minor in cool purple (lowercase) */
+/* Quality — cursive/script font for visual distinction */
+.output-quality {
+  font-family: 'Dancing Script', cursive;
+  font-size: clamp(1.6rem, 4.5vw, 2.8rem);
+  font-weight: 700;
+  margin-bottom: 0.15em;
+  line-height: 1.2;
+}
+
+/* Quality colouring — Major in warm gold, minor in cool purple, modes in green */
 .quality-major { color: var(--accent); }
 .quality-minor { color: var(--primary-light); }
+.quality-mode  { color: var(--success); }
 
-/* CAGED shape label ("E shape") rendered outside the SVG */
+/* CAGED shape label ("E shape") — geometric/mono font for contrast */
 .output-caged-shape {
   font-size: clamp(1rem, 2.8vw, 1.6rem);
   font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
   margin: 0.05rem 0;
   line-height: 1.2;
 }
@@ -288,12 +403,12 @@ html, body {
   /* colour is applied by the letter-specific rule below */
 }
 
-/* Per-letter CAGED colours — circular palette C→A→G→E→D→C */
-.caged-letter.caged-letter-C { color: #ff6b6b; text-shadow: 0 0 20px rgba(255,107,107,0.5); }
-.caged-letter.caged-letter-A { color: #ffa040; text-shadow: 0 0 20px rgba(255,160, 64,0.5); }
-.caged-letter.caged-letter-G { color: #69db7c; text-shadow: 0 0 20px rgba(105,219,124,0.5); }
-.caged-letter.caged-letter-E { color: #74c0fc; text-shadow: 0 0 20px rgba(116,192,252,0.5); }
-.caged-letter.caged-letter-D { color: #cc5de8; text-shadow: 0 0 20px rgba(204, 93,232,0.5); }
+/* Per-letter CAGED colours — Sakura palette */
+.caged-letter.caged-letter-C { color: #f8b9ce; text-shadow: 0 0 20px rgba(248,185,206,0.5); }
+.caged-letter.caged-letter-A { color: #f490b1; text-shadow: 0 0 20px rgba(244,144,177,0.5); }
+.caged-letter.caged-letter-G { color: #f06090; text-shadow: 0 0 20px rgba(240, 96,144,0.5); }
+.caged-letter.caged-letter-E { color: #ec417a; text-shadow: 0 0 20px rgba(236, 65,122,0.5); }
+.caged-letter.caged-letter-D { color: #da1b61; text-shadow: 0 0 20px rgba(218, 27, 97,0.5); }
 
 .output-direction-line,
 .output-register-line {
@@ -523,7 +638,7 @@ html, body {
 
   .bpm-wrapper { flex: 0 0 100%; margin-left: 0; }
 
-  .output-root-quality { font-size: clamp(2rem, 12vw, 3.5rem); }
+  .output-root { font-size: clamp(2.2rem, 14vw, 4rem); }
 
   .caged-letter         { font-size: clamp(1.1rem, 5vw, 1.8rem); }
   .caged-letter.caged-selected { font-size: clamp(1.8rem, 9vw, 3rem); }

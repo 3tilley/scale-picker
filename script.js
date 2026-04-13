@@ -4,6 +4,89 @@
 
 'use strict';
 
+// ── Preset Configurations ─────────────────────────────────────────────────────
+// Edit these objects to tweak what each preset loads.
+// Keys match the checkbox/select IDs in the settings panel.
+
+const PRESETS = {
+  'new-player': {
+    label: 'New Player',
+    description: 'Just the basics — C major in CAGED shapes',
+    randomRoot: false,
+    rootNote: 'C',
+    randomQuality: false,
+    quality: 'Major',
+    enableModes: false,
+    enableCaged: true,
+    enableDirection: false,
+    enableRegister: false,
+    enableOrder: false,
+    bpm: 120,
+    countInBars: '2',
+    autoAdvance: false,
+  },
+  'intermediate': {
+    label: 'Intermediate',
+    description: 'Random roots, major & minor, with direction',
+    randomRoot: true,
+    randomQuality: true,
+    quality: 'Major',
+    enableModes: false,
+    enableCaged: true,
+    enableDirection: true,
+    dirAsc: true,
+    dirDesc: true,
+    dirBoth: false,
+    enableRegister: false,
+    enableOrder: false,
+    bpm: 120,
+    countInBars: '2',
+    autoAdvance: false,
+  },
+  'blues-dentist': {
+    label: 'Blues Dentist',
+    description: 'Modes, register, and all the CAGED shapes',
+    randomRoot: true,
+    randomQuality: true,
+    quality: 'Major',
+    enableModes: true,
+    enableCaged: true,
+    enableDirection: true,
+    dirAsc: true,
+    dirDesc: true,
+    dirBoth: true,
+    enableRegister: true,
+    regHigh: true,
+    regLow: true,
+    regBoth: false,
+    enableOrder: false,
+    bpm: 120,
+    countInBars: '2',
+    autoAdvance: false,
+  },
+  'session-musician': {
+    label: 'Session Musician',
+    description: 'Everything on — fast tempo, auto-advance',
+    randomRoot: true,
+    randomQuality: true,
+    quality: 'Major',
+    enableModes: true,
+    enableCaged: true,
+    enableDirection: true,
+    dirAsc: true,
+    dirDesc: true,
+    dirBoth: true,
+    enableRegister: true,
+    regHigh: true,
+    regLow: true,
+    regBoth: true,
+    enableOrder: true,
+    bpm: 240,
+    countInBars: '2',
+    autoAdvance: true,
+  },
+};
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const ROOT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -17,10 +100,18 @@ const ROOT_SEMITONE = {
 const QUALITIES       = ['Major', 'Minor'];
 const CAGED_POSITIONS = ['C', 'A', 'G', 'E', 'D'];
 
+// Modal scale names (modes of the major scale)
+const MODES = ['Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Locrian'];
+
 // Scale intervals in semitones from root (7 degrees)
 const SCALE_INTERVALS = {
-  Major: [0, 2, 4, 5, 7, 9, 11],
-  Minor: [0, 2, 3, 5, 7, 8, 10],
+  Major:      [0, 2, 4, 5, 7, 9, 11],
+  Minor:      [0, 2, 3, 5, 7, 8, 10],
+  Dorian:     [0, 2, 3, 5, 7, 9, 10],
+  Phrygian:   [0, 1, 3, 5, 7, 8, 10],
+  Lydian:     [0, 2, 4, 6, 7, 9, 11],
+  Mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  Locrian:    [0, 1, 3, 5, 6, 8, 10],
 };
 
 // Base MIDI note for each register (octave root)
@@ -125,7 +216,10 @@ function generateCore() {
   clearError();
 
   const root      = randomRoot    ? pickRandom(ROOT_NOTES) : document.getElementById('rootNote').value;
-  const quality   = randomQuality ? pickRandom(QUALITIES)  : document.getElementById('quality').value;
+  // Build the quality pool: always include Major/Minor, optionally add modes
+  const modesOn   = document.getElementById('enableModes').checked;
+  const qualityPool = modesOn ? [...QUALITIES, ...MODES] : QUALITIES;
+  const quality   = randomQuality ? pickRandom(qualityPool) : document.getElementById('quality').value;
   const caged     = document.getElementById('enableCaged').checked     ? pickRandom(CAGED_POSITIONS) : null;
   // Order must be resolved before direction: direction is suppressed when order is in use
   const order     = document.getElementById('enableOrder').checked     ? generateScaleOrder()         : null;
@@ -147,8 +241,11 @@ function generate() {
 
 // ── Render: CAGED display ─────────────────────────────────────────────────────
 
-// Colour for each CAGED letter (circular palette: C→A→G→E→D→C)
-const CAGED_COLOURS = { C: '#ff6b6b', A: '#ffa040', G: '#69db7c', E: '#74c0fc', D: '#cc5de8' };
+// Colour for each CAGED letter — Sakura palette
+const CAGED_COLOURS = { C: '#f8b9ce', A: '#f490b1', G: '#f06090', E: '#ec417a', D: '#da1b61' };
+
+// Quality colours — shared between CSS (via class) and SVG inline rendering
+const QUALITY_COLOURS = { Major: '#f5a623', Minor: '#9b95ff', mode: '#4ade80' };
 
 function renderCaged(selected) {
   return CAGED_POSITIONS.map(letter => {
@@ -166,15 +263,23 @@ function renderOutput() {
   if (!currentSelection) return;
   const { root, quality, caged, direction, register, order } = currentSelection;
 
-  // Display quality: Major keeps capital M, minor uses lowercase m
-  const qualityDisplay = quality === 'Major' ? 'Major' : 'minor';
-  const qualityCls     = quality === 'Major' ? 'quality-major' : 'quality-minor';
+  // Display quality: Major keeps capital M, minor uses lowercase m, modes keep their name
+  const isMode = MODES.includes(quality);
+  const qualityDisplay = quality === 'Major' ? 'Major'
+    : quality === 'Minor' ? 'minor'
+    : quality; // modes keep their name as-is
+  const qualityCls = quality === 'Major' ? 'quality-major'
+    : quality === 'Minor' ? 'quality-minor'
+    : 'quality-mode';
 
   const html = [];
+  // Root note — large bold sans-serif
   html.push(
-    `<div class="output-line output-root-quality">` +
-    `${escHtml(root)}\u00a0<span class="${qualityCls}">${escHtml(qualityDisplay)}</span>` +
-    `</div>`
+    `<div class="output-line output-root">${escHtml(root)}</div>`
+  );
+  // Quality — cursive/italic font
+  html.push(
+    `<div class="output-line output-quality"><span class="${qualityCls}">${escHtml(qualityDisplay)}</span></div>`
   );
   // Staff graphic sits immediately after the title
   html.push(renderStaffGraphic(currentSelection));
@@ -195,30 +300,48 @@ function renderOutput() {
 
 /**
  * Returns an inline SVG string representing a music staff that encodes
- * register (coloured region) and direction (arrow) at a glance.
- * The scale name and CAGED label are rendered outside the SVG by renderOutput().
+ * register (coloured region), direction (arrow), and scale name at a glance.
  */
 function renderStaffGraphic(selection) {
-  const { caged, direction, register } = selection;
+  const { root, quality, caged, direction, register } = selection;
 
   const w = 240;
-  // Staff: 5 lines with LINE_SPACING px gap — starting close to the top (no scale name inside)
+  // Reserve top portion for scale name text, then draw the staff below
+  const LABEL_Y = 16;            // baseline for the scale name text
+  const STAFF_Y_OFFSET = 24;     // staff starts below the label
   const LINE_SPACING = 10;
-  const lines = [10, 10 + LINE_SPACING, 10 + LINE_SPACING * 2, 10 + LINE_SPACING * 3, 10 + LINE_SPACING * 4];
-  const staffTop = lines[0];               // y = 10
-  const staffBot = lines[lines.length - 1]; // y = 50
-  const midY     = lines[2];               // middle (3rd) line — y = 30
+  const lines = [
+    STAFF_Y_OFFSET,
+    STAFF_Y_OFFSET + LINE_SPACING,
+    STAFF_Y_OFFSET + LINE_SPACING * 2,
+    STAFF_Y_OFFSET + LINE_SPACING * 3,
+    STAFF_Y_OFFSET + LINE_SPACING * 4,
+  ];
+  const staffTop = lines[0];
+  const staffBot = lines[lines.length - 1];
+  const midY     = lines[2];
   const x1 = 14, x2 = 226;
-  const h = 60;
+  const h = STAFF_Y_OFFSET + LINE_SPACING * 4 + 14; // enough room below the staff
 
   const parts = [];
 
   // Background card
   parts.push(`<rect width="${w}" height="${h}" rx="7" fill="#1a1d27"/>`);
 
+  // ── Scale name label inside the staff ──
+  const qualityDisplay = quality === 'Major' ? 'Major'
+    : quality === 'Minor' ? 'minor'
+    : quality;
+  const scaleLabel = `${root} ${qualityDisplay}`;
+  const qualityColour = QUALITY_COLOURS[quality] || QUALITY_COLOURS.mode;
+  parts.push(
+    `<text x="${w / 2}" y="${LABEL_Y}" text-anchor="middle" ` +
+    `font-family="'Georgia','Times New Roman',serif" font-size="13" font-weight="700" ` +
+    `fill="${qualityColour}" opacity="0.95">${escHtml(scaleLabel)}</text>`
+  );
+
   // The single accent colour for this card: the CAGED letter colour when available,
-  // otherwise a neutral light. This is used for both the register fill and the arrows
-  // so everything reads as one coherent colour per card.
+  // otherwise a neutral light.
   const accentColour = caged ? (CAGED_COLOURS[caged] || '#d0d3e8') : '#d0d3e8';
 
   // Register fill region (behind staff lines so lines overlay the fill)
@@ -832,5 +955,109 @@ document.getElementById('autoAdvance').addEventListener('change', function () {
     }
     startSession(currentSelection, 0);
     updatePlayBtn(true);
+  }
+});
+
+// ── Preset System ─────────────────────────────────────────────────────────────
+
+/**
+ * Applies a preset configuration to the settings panel.
+ * Reads from the PRESETS object at the top of the file.
+ */
+function applyPreset(presetKey) {
+  const preset = PRESETS[presetKey];
+  if (!preset) return;
+
+  // Helper: set checkbox and fire change event so any listeners run
+  function setCheck(id, val) {
+    const el = document.getElementById(id);
+    if (el) { el.checked = val; el.dispatchEvent(new Event('change')); }
+  }
+  // Helper: set select value
+  function setSelect(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+
+  // Root note
+  setCheck('randomRoot', preset.randomRoot);
+  if (!preset.randomRoot) setSelect('rootNote', preset.rootNote || 'C');
+  document.getElementById('rootNote').disabled = preset.randomRoot;
+
+  // Quality
+  setCheck('randomQuality', preset.randomQuality);
+  if (!preset.randomQuality) setSelect('quality', preset.quality || 'Major');
+  document.getElementById('quality').disabled = preset.randomQuality;
+
+  // Modes
+  setCheck('enableModes', !!preset.enableModes);
+
+  // CAGED
+  setCheck('enableCaged', preset.enableCaged);
+
+  // Direction
+  setCheck('enableDirection', preset.enableDirection);
+  if (preset.dirAsc !== undefined) setCheck('dirAsc', preset.dirAsc);
+  if (preset.dirDesc !== undefined) setCheck('dirDesc', preset.dirDesc);
+  if (preset.dirBoth !== undefined) setCheck('dirBoth', preset.dirBoth);
+
+  // Register
+  setCheck('enableRegister', preset.enableRegister);
+  if (preset.regHigh !== undefined) setCheck('regHigh', preset.regHigh);
+  if (preset.regLow !== undefined) setCheck('regLow', preset.regLow);
+  if (preset.regBoth !== undefined) setCheck('regBoth', preset.regBoth);
+
+  // Scale order
+  setCheck('enableOrder', preset.enableOrder);
+
+  // BPM
+  if (preset.bpm) document.getElementById('bpm').value = preset.bpm;
+
+  // Count-in bars
+  if (preset.countInBars) setSelect('countInBars', preset.countInBars);
+
+  // Auto-advance (set without triggering auto-play)
+  const autoEl = document.getElementById('autoAdvance');
+  autoEl.checked = !!preset.autoAdvance;
+
+  // Hide the preset screen and show the app
+  hidePresetScreen();
+
+  // Generate a first scale automatically
+  generateCore();
+
+  // If auto-advance is on, start playing
+  if (preset.autoAdvance && currentSelection) {
+    startSession(currentSelection, 0);
+    updatePlayBtn(true);
+  }
+}
+
+/** Hides the preset screen and reveals the main app */
+function hidePresetScreen() {
+  const screen = document.getElementById('preset-screen');
+  if (screen) screen.classList.add('hidden');
+}
+
+/** Shows the preset screen */
+function showPresetScreen() {
+  const screen = document.getElementById('preset-screen');
+  if (screen) screen.classList.remove('hidden');
+}
+
+// Wire up preset buttons (they are rendered in the HTML)
+document.addEventListener('DOMContentLoaded', () => {
+  // Preset buttons
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+
+  // "or customise" link
+  const customiseBtn = document.getElementById('preset-customise');
+  if (customiseBtn) {
+    customiseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      hidePresetScreen();
+    });
   }
 });
