@@ -244,6 +244,9 @@ function generate() {
 // Colour for each CAGED letter — Sakura palette
 const CAGED_COLOURS = { C: '#f8b9ce', A: '#f490b1', G: '#f06090', E: '#ec417a', D: '#da1b61' };
 
+// Quality colours — shared between CSS (via class) and SVG inline rendering
+const QUALITY_COLOURS = { Major: '#f5a623', Minor: '#9b95ff', mode: '#4ade80' };
+
 function renderCaged(selected) {
   return CAGED_POSITIONS.map(letter => {
     const isSelected = letter === selected;
@@ -330,9 +333,7 @@ function renderStaffGraphic(selection) {
     : quality === 'Minor' ? 'minor'
     : quality;
   const scaleLabel = `${root} ${qualityDisplay}`;
-  const qualityColour = quality === 'Major' ? '#f5a623'
-    : quality === 'Minor' ? '#9b95ff'
-    : '#4ade80';
+  const qualityColour = QUALITY_COLOURS[quality] || QUALITY_COLOURS.mode;
   parts.push(
     `<text x="${w / 2}" y="${LABEL_Y}" text-anchor="middle" ` +
     `font-family="'Georgia','Times New Roman',serif" font-size="13" font-weight="700" ` +

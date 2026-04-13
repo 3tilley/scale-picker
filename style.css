@@ -357,7 +357,7 @@ html, body {
 
 /* Quality — cursive/script font for visual distinction */
 .output-quality {
-  font-family: 'Dancing Script', cursive, serif;
+  font-family: 'Dancing Script', cursive;
   font-size: clamp(1.6rem, 4.5vw, 2.8rem);
   font-weight: 700;
   margin-bottom: 0.15em;
